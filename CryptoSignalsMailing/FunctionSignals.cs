@@ -26,12 +26,23 @@ namespace CryptoSignalsMailing
                 Client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
             }
 
-            var value = await CryptoApi.GetCoinPrice(Client, "BTC");
+            var maInfo4h = await CryptoApi.GetMovingAverage(Client, "BTC", 4, 21);
+            var priceYesterday = await CryptoApi.GetCoinPriceYesterday(Client, "BTC");
+            var priceCurrent = await CryptoApi.GetCoinPrice(Client, "BTC");
 
-            string subject = "Alert BTC price";
-            string text = $"The current BTC price: {value}";
+            var prc = ((priceCurrent - maInfo4h) / maInfo4h) * 100;
+
+            var roundedPrc = Math.Round(prc, 1);
+
+            var text = $"API called, BTC price: {priceCurrent} ; yesterday: {priceYesterday} ; 21MA in 4h: {maInfo4h} ; Prc: {roundedPrc}";
+
+            log.Info(text);
+
+            var subject = "Alert BTC price";
 
             await MyMail.SendEmail("mvdruijt@gmail.com", "mvdr@dummy.nl", subject, text);
+
+            log.Info("SendEmail has been called");
         }
     }
 }
