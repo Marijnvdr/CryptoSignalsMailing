@@ -40,7 +40,7 @@ namespace CryptoSignalsMailing
 
             var subject = "Alert BTC price";
 
-            await MyMail.SendEmail("mvdruijt@gmail.com", "mvdr@dummy.nl", subject, text);
+            await SendGridMail.SendEmail("mvdruijt@gmail.com", "mvdr@dummy.nl", subject, text);
 
             log.Info("SendEmail has been called");
         }
