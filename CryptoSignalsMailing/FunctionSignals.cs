@@ -40,34 +40,51 @@ namespace CryptoSignalsMailing
 
             foreach (var coin in coins)
             {
-                var maInfo4h = await CryptoApi.GetMovingAverage(Client, coin, chartInHours, 21);
-                var priceYesterday = await CryptoApi.GetCoinPriceYesterday(Client, coin);
-                var priceCurrent = await CryptoApi.GetCoinPrice(Client, coin);
-                var prc = ((priceCurrent - maInfo4h) / maInfo4h) * 100;
-                var roundedPrc = Math.Round(prc, 1);
-                var isShortable = Array.IndexOf(coinsBitfinexShortable, coin) > -1;
-
-                var coinMaSignal = new MaSignalsModel()
+                try
                 {
-                    Name = coin,
-                    MovingAverage = maInfo4h,
-                    ChartInHours = chartInHours,
-                    PriceCurrent = priceCurrent,
-                    PriceYesterday = priceYesterday,
-                    PercentageCurrentPriceToMa = roundedPrc,
-                    IsShortable = isShortable
-                };
+                    var maInfo4h = await CryptoApi.GetMovingAverage(Client, coin, chartInHours, 21);
+                    var priceYesterday = await CryptoApi.GetCoinPriceYesterday(Client, coin);
+                    var priceCurrent = await CryptoApi.GetCoinPrice(Client, coin);
 
-                if (priceCurrent > maInfo4h && priceYesterday < maInfo4h)
-                {
-                    coinsInfoSignalUp.Add(coinMaSignal);
+                    if (maInfo4h > 0 && priceCurrent > 0 && priceYesterday > 0)
+                    {
+                        var prc = ((priceCurrent - maInfo4h) / maInfo4h) * 100;
+                        var roundedPrc = Math.Round(prc, 1);
+                        var isShortable = Array.IndexOf(coinsBitfinexShortable, coin) > -1;
+
+                        var coinMaSignal = new MaSignalsModel()
+                        {
+                            Name = coin,
+                            MovingAverage = maInfo4h,
+                            ChartInHours = chartInHours,
+                            PriceCurrent = priceCurrent,
+                            PriceYesterday = priceYesterday,
+                            PercentageCurrentPriceToMa = roundedPrc,
+                            IsShortable = isShortable
+                        };
+
+                        if (priceCurrent > maInfo4h && priceYesterday < maInfo4h)
+                        {
+                            coinsInfoSignalUp.Add(coinMaSignal);
+                        }
+
+                        if (priceCurrent < maInfo4h && priceYesterday > maInfo4h)
+                        {
+                            coinsInfoSignalDown.Add(coinMaSignal);
+                        }
+                    }
+                    else
+                    {
+                        log.Info($"API call failed for : {coin} ; Coin is skipped");
+                    }
                 }
-
-                if (priceCurrent < maInfo4h && priceYesterday > maInfo4h)
+                catch
                 {
-                    coinsInfoSignalDown.Add(coinMaSignal);
+                    log.Info($"Unexpected exception while processing : {coin} ; Coin is skipped");
                 }
             }
+
+            log.Info($"Up Signals found: {coinsInfoSignalUp.Count} ; Down Signals found: {coinsInfoSignalDown.Count}");
 
             if (coinsInfoSignalUp.Count > 0 || coinsInfoSignalDown.Count > 0)
             {
