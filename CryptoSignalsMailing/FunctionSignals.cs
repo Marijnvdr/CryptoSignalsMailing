@@ -4,6 +4,8 @@ using Microsoft.Azure.WebJobs.Host;
 using System.Threading.Tasks;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Collections.Generic;
+using CryptoSignalsMailing.Models;
 
 namespace CryptoSignalsMailing
 {
@@ -11,8 +13,9 @@ namespace CryptoSignalsMailing
     {
         static readonly HttpClient Client = new HttpClient();
 
+        // On Azure UTC time is used (+2), so TimerTrigger 4,8,12,16,20 means 6h,10h,14h,18h,22h
         [FunctionName("FunctionSignals")]
-        public static async Task Run([TimerTrigger("0 5 6,10,14,18,22 * * *")]TimerInfo myTimer, TraceWriter log)
+        public static async Task Run([TimerTrigger("0 5 4,8,12,16,20 * * *")]TimerInfo myTimer, TraceWriter log)
         {
             // for testing use this cron expression (every minute): "0 */1 * * * *"
 
@@ -26,23 +29,81 @@ namespace CryptoSignalsMailing
                 Client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
             }
 
-            var maInfo4h = await CryptoApi.GetMovingAverage(Client, "BTC", 4, 21);
-            var priceYesterday = await CryptoApi.GetCoinPriceYesterday(Client, "BTC");
-            var priceCurrent = await CryptoApi.GetCoinPrice(Client, "BTC");
+            var coinsBitfinexShortable = new string[] { "BTC", "BTG", "DSH", "EOS", "ETC", "ETH", "IOT", "LTC", "NEO", "OMG", "XMR", "XRP", "ZEC" };
 
-            var prc = ((priceCurrent - maInfo4h) / maInfo4h) * 100;
+            var coins = new string[] { "ADA", "AION", "ARK", "BNB", "BTC", "BTG", "CLOAK", "DASH", "EOS", "ETC", "ETH", "GAS", "HT", "ICX", "IOT", "KCS",
+            "LSK", "LTC", "NANO", "NEO", "OMG", "QTUM", "TRX", "VEN", "XLM", "XMR", "XRP", "ZEC", "ZIL" };
 
-            var roundedPrc = Math.Round(prc, 1);
+            var coinsInfoSignalUp = new List<MaSignalsModel>();
+            var coinsInfoSignalDown = new List<MaSignalsModel>();
+            var chartInHours = 4;
 
-            var text = $"API called, BTC price: {priceCurrent} ; yesterday: {priceYesterday} ; 21MA in 4h: {maInfo4h} ; Prc: {roundedPrc}";
+            foreach (var coin in coins)
+            {
+                var maInfo4h = await CryptoApi.GetMovingAverage(Client, coin, chartInHours, 21);
+                var priceYesterday = await CryptoApi.GetCoinPriceYesterday(Client, coin);
+                var priceCurrent = await CryptoApi.GetCoinPrice(Client, coin);
+                var prc = ((priceCurrent - maInfo4h) / maInfo4h) * 100;
+                var roundedPrc = Math.Round(prc, 1);
+                var isShortable = Array.IndexOf(coinsBitfinexShortable, coin) > -1;
 
-            log.Info(text);
+                var coinMaSignal = new MaSignalsModel()
+                {
+                    Name = coin,
+                    MovingAverage = maInfo4h,
+                    ChartInHours = chartInHours,
+                    PriceCurrent = priceCurrent,
+                    PriceYesterday = priceYesterday,
+                    PercentageCurrentPriceToMa = roundedPrc,
+                    IsShortable = isShortable
+                };
 
-            var subject = "Alert BTC price";
+                if (priceCurrent > maInfo4h && priceYesterday < maInfo4h)
+                {
+                    coinsInfoSignalUp.Add(coinMaSignal);
+                }
 
-            await SendGridMail.SendEmail("mvdruijt@gmail.com", "mvdr@dummy.nl", subject, text);
+                if (priceCurrent < maInfo4h && priceYesterday > maInfo4h)
+                {
+                    coinsInfoSignalDown.Add(coinMaSignal);
+                }
+            }
 
-            log.Info("SendEmail has been called");
+            if (coinsInfoSignalUp.Count > 0 || coinsInfoSignalDown.Count > 0)
+            {
+                var plainText = string.Empty;
+                var htmlText = string.Empty;
+
+                if (coinsInfoSignalUp.Count > 0)
+                {
+                    plainText = "21Ma in 4h up (buy signal): "; 
+                    htmlText = "<h3>Cross up 21 MA in 4h chart (BUY signal)</h3> ";
+
+                    foreach (var coin in coinsInfoSignalUp)
+                    {
+                        plainText += $"{coin.Name}, ";
+                        htmlText += $"<p style='color:Green'>{coin.Name}</p>";
+                    }
+                    htmlText += "<br>";
+                }
+                if (coinsInfoSignalDown.Count > 0)
+                {
+                    plainText += "21Ma in 4h down (sell signal): ";
+                    htmlText = "<h3>Cross down 21 MA in 4h chart (SELL signal)</h3> ";
+
+                    foreach (var coin in coinsInfoSignalDown)
+                    {
+                        plainText += $"{coin.Name}, ";
+                        htmlText += $"<p style='color:Red'>{coin.Name}</p>";
+                    }
+                }
+
+                var subject = "Alert Moving Average signals";
+
+                await SendGridMail.SendEmail("mvdruijt@gmail.com", "mvdr@dummy.nl", subject, plainText, htmlText);
+
+                log.Info("SendEmail has been called");
+            }
         }
     }
 }
