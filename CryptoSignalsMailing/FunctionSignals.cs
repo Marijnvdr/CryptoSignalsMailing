@@ -13,9 +13,10 @@ namespace CryptoSignalsMailing
     {
         static readonly HttpClient Client = new HttpClient();
 
-        // On Azure UTC time is used (+2), so TimerTrigger 4,8,12,16,20 means 6h,10h,14h,18h,22h
+        // On Azure UTC time is used (+2), so TimerTrigger 4,16 means 6h,18h
+        // the first 5 means 5 minutes after the whole hour: so actually 6:05 and 18:05
         [FunctionName("FunctionSignals")]
-        public static async Task Run([TimerTrigger("0 5 4,8,12,16,20 * * *")]TimerInfo myTimer, TraceWriter log)
+        public static async Task Run([TimerTrigger("0 5 4,16 * * *")]TimerInfo myTimer, TraceWriter log)
         {
             // for testing use this cron expression (every minute): "0 */1 * * * *"
 
@@ -36,6 +37,8 @@ namespace CryptoSignalsMailing
 
             var coinsInfoSignalUp = new List<MaSignalsModel>();
             var coinsInfoSignalDown = new List<MaSignalsModel>();
+            var coinsSkipped = new List<string>();
+
             var chartInHours = 4;
 
             foreach (var coin in coins)
@@ -75,18 +78,20 @@ namespace CryptoSignalsMailing
                     }
                     else
                     {
+                        coinsSkipped.Add(coin);
                         log.Info($"API call failed for : {coin} ; Coin is skipped");
                     }
                 }
                 catch
                 {
+                    coinsSkipped.Add(coin);
                     log.Info($"Unexpected exception while processing : {coin} ; Coin is skipped");
                 }
             }
 
             log.Info($"Up Signals found: {coinsInfoSignalUp.Count} ; Down Signals found: {coinsInfoSignalDown.Count}");
 
-            if (coinsInfoSignalUp.Count > 0 || coinsInfoSignalDown.Count > 0)
+            if (coinsInfoSignalUp.Count > 0 || coinsInfoSignalDown.Count > 0 || coinsSkipped.Count > 0)
             {
                 var plainText = string.Empty;
                 var htmlText = string.Empty;
@@ -112,6 +117,17 @@ namespace CryptoSignalsMailing
                     {
                         plainText += $"{coin.Name}, ";
                         htmlText += $"<p style='color:Red'>{coin.Name}</p>";
+                    }
+                }
+                if (coinsSkipped.Count > 0)
+                {
+                    plainText += "skipped: ";
+                    htmlText = "<h3>Skipped</h3> ";
+
+                    foreach (var coin in coinsSkipped)
+                    {
+                        plainText += $"{coin}, ";
+                        htmlText += $"<p style='color:Grey'>{coin}</p>";
                     }
                 }
 
