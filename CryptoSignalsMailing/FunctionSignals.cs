@@ -78,13 +78,13 @@ namespace CryptoSignalsMailing
                     }
                     else
                     {
-                        coinsSkipped.Add(coin);
+                        coinsSkipped.Add($"{coin} ; maInfo4h: {maInfo4h} ; priceCurrent: {priceCurrent} ; priceYesterday: {priceYesterday}");
                         log.Info($"API call failed for : {coin} ; Coin is skipped");
                     }
                 }
-                catch
+                catch (Exception e)
                 {
-                    coinsSkipped.Add(coin);
+                    coinsSkipped.Add($"{coin} ; exception: {e.Message}");
                     log.Info($"Unexpected exception while processing : {coin} ; Coin is skipped");
                 }
             }
@@ -111,7 +111,7 @@ namespace CryptoSignalsMailing
                 if (coinsInfoSignalDown.Count > 0)
                 {
                     plainText += "21Ma in 4h down (sell signal): ";
-                    htmlText = "<h3>Cross down 21 MA in 4h chart (SELL signal)</h3> ";
+                    htmlText += "<h3>Cross down 21 MA in 4h chart (SELL signal)</h3> ";
 
                     foreach (var coin in coinsInfoSignalDown)
                     {
@@ -122,7 +122,7 @@ namespace CryptoSignalsMailing
                 if (coinsSkipped.Count > 0)
                 {
                     plainText += "skipped: ";
-                    htmlText = "<h3>Skipped</h3> ";
+                    htmlText += "<h3>Skipped</h3> ";
 
                     foreach (var coin in coinsSkipped)
                     {
