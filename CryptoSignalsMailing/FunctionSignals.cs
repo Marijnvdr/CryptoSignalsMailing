@@ -13,6 +13,7 @@ namespace CryptoSignalsMailing
     {
         static readonly HttpClient Client = new HttpClient();
 
+        // TimerTrigger: "0 5 4,16 * * *"
         // On Azure UTC time is used (+2), so TimerTrigger 4,16 means 6h,18h
         // the first 5 means 5 minutes after the whole hour: so actually 6:05 and 18:05
         [FunctionName("FunctionSignals")]
@@ -51,7 +52,7 @@ namespace CryptoSignalsMailing
 
                     if (maInfo4h > 0 && priceCurrent > 0 && priceYesterday > 0)
                     {
-                        var prc = ((priceCurrent - maInfo4h) / maInfo4h) * 100;
+                        double prc = ((priceCurrent - maInfo4h) / maInfo4h) * 100;
                         var roundedPrc = Math.Round(prc, 1);
                         var isShortable = Array.IndexOf(coinsBitfinexShortable, coin) > -1;
 

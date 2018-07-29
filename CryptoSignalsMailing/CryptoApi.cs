@@ -48,7 +48,7 @@ namespace CryptoSignalsMailing
                 var json = await response.Content.ReadAsStringAsync();
                 var obj = JsonConvert.DeserializeObject<dynamic>(json);
 
-                var total = 0;
+                double total = 0;
                 var count = 0;
 
                 foreach (var candle in obj.Data)
